@@ -9,33 +9,31 @@ import Foundation
 
 protocol BooksViewModelProtocol {
     var list: CategoriesResponse? { get }
-    var networkService: NetworkService { get }
+    var networkService: BooksNetworkServiceProtocol { get }
     var books: Observable<[Book]?> { get }
-    func getBooks()
+    var error: Observable<String?> { get }
+    func getBooks() async
 }
 
 final class BooksViewModel: BooksViewModelProtocol {
     
     var list: CategoriesResponse? = nil
     
-    let networkService = NetworkService()
+    let networkService: BooksNetworkServiceProtocol
     
     let books: Observable<[Book]?> = Observable(nil)
+    let error: Observable<String?> = Observable(nil)
     
-    func getBooks() {
-        let url = "https://api.nytimes.com/svc/books/v3/lists/\(list?.newestPublishedDate ?? "")/\(list?.listNameEncoded ?? "").json?api-key=\(Constants.apikey)"
-        networkService.get(with: url) { (result: Result<Welcome, Error>) in
-            switch result {
-            case .success(let success):
-                self.books.value = success.results?.books
-            case .failure(let failure):
-                print(failure.localizedDescription)
-            }
-        }
+    init(networkService: BooksNetworkServiceProtocol) {
+        self.networkService = networkService
     }
     
-}
-
-enum Constants: String {
-    case apikey = "qEbukI8vVZs34j4JSyiiUZatE116iTP8"
+    func getBooks() async {
+        do {
+            guard let list else { return }
+            self.books.value = try await networkService.getBooks(date: list.newestPublishedDate ?? "", list: list.listNameEncoded ?? "").results?.books
+        } catch {
+            self.error.value = error.localizedDescription
+        }
+    }
 }

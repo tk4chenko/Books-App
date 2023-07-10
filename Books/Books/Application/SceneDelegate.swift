@@ -11,15 +11,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
-
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         window = UIWindow(windowScene: windowScene)
         window?.makeKeyAndVisible()
         window?.backgroundColor = .black
-        let viewModel = ViewModel()
-        let pageViewController = ViewController(viewModel: viewModel)
-        let navigationController = UINavigationController(rootViewController: pageViewController)
+        let viewModel = CategoriesViewModel(networkService: BooksNetworkService())
+        let viewController = CategoriesViewController(viewModel: viewModel)
+        let navigationController = UINavigationController(rootViewController: viewController)
+//        navigationController.hidesBarsOnSwipe = true
         window?.rootViewController = navigationController
     }
 

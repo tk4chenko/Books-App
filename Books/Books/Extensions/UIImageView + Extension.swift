@@ -14,9 +14,8 @@ extension UIImageView {
         activityIndicator.frame = self.bounds
         activityIndicator.startAnimating()
         self.addSubview(activityIndicator)
-        
         let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-        let dataRequest = URLSession.shared.dataTask(with: request) { data, responce, error in
+        URLSession.shared.dataTask(with: request) { data, responce, error in
             DispatchQueue.main.async {
                 activityIndicator.stopAnimating()
                 activityIndicator.removeFromSuperview()
@@ -28,7 +27,6 @@ extension UIImageView {
             } else if let error {
                 print(error.localizedDescription)
             }
-        }
-        dataRequest.resume()
+        }.resume()
     }
 }

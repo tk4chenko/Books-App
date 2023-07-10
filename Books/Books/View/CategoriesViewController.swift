@@ -1,5 +1,5 @@
 //
-//  BooksViewController.swift
+//  CategoriesViewController.swift
 //  Books
 //
 //  Created by Artem Tkachenko on 06.07.2023.
@@ -7,9 +7,9 @@
 
 import UIKit
 
-final class BooksViewController: UIViewController {
+final class CategoriesViewController: UIViewController {
     
-    let viewModel: BooksViewModelProtocol
+    let viewModel: CategoriesViewModelProtocol
     
     private let tableView: UITableView = {
         let tableView = UITableView()
@@ -30,14 +30,16 @@ final class BooksViewController: UIViewController {
     private let errorLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.numberOfLines = 0
         label.isHidden = true
         label.textColor = .black
         label.textAlignment = .center
+        label.numberOfLines = 0
         return label
     }()
     
-    init(viewModel: BooksViewModelProtocol) {
+    private let refreshControl = UIRefreshControl()
+    
+    init(viewModel: CategoriesViewModelProtocol) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
@@ -48,44 +50,63 @@ final class BooksViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupUI()
         Task {
-            await viewModel.getBooks()
+            await viewModel.getCategories(useCache: true)
         }
+        setupUI()
         setupBindings()
     }
     
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         setupConstraints()
     }
     
     private func setupUI() {
-        title = viewModel.list?.listName
+        title = "Categories"
         view.backgroundColor = .systemBackground
         tableView.delegate = self
         tableView.dataSource = self
-        tableView.register(BookCell.self, forCellReuseIdentifier: BookCell.identifier)
+        tableView.refreshControl = refreshControl
+        refreshControl.addAction(UIAction(handler: { [weak self] _ in
+            guard let self else { return }
+            URLCache.shared.removeAllCachedResponses()
+            self.perfomanceUI()
+            Task {
+                await self.viewModel.getCategories(useCache: true)
+            }
+        }), for: .valueChanged)
+    }
+    
+    private func perfomanceUI() {
+        Task {
+            try await Task.sleep(seconds: 1.2)
+            await MainActor.run {
+                self.refreshControl.endRefreshing()
+            }
+        }
     }
     
     private func setupBindings() {
-        viewModel.books.bind { [weak self] result in
+        viewModel.categories.bind { [weak self] result in
+            guard let self else { return }
             if result != nil {
                 DispatchQueue.main.async {
-                    self?.errorLabel.isHidden = true
-                    self?.loadingIndicator.stopAnimating()
-                    self?.loadingIndicator.removeFromSuperview()
-                    self?.tableView.reloadData()
+                    self.errorLabel.isHidden = true
+                    self.loadingIndicator.stopAnimating()
+                    self.loadingIndicator.removeFromSuperview()
+                    self.tableView.reloadData()
                 }
             }
         }
         viewModel.error.bind { [weak self] result in
+            guard let self else { return }
             if result != nil {
                 DispatchQueue.main.async {
-                    self?.errorLabel.text = result
-                    self?.loadingIndicator.stopAnimating()
-                    self?.loadingIndicator.removeFromSuperview()
-                    self?.errorLabel.isHidden = false
+                    self.loadingIndicator.stopAnimating()
+                    self.loadingIndicator.removeFromSuperview()
+                    self.errorLabel.text = result
+                    self.errorLabel.isHidden = false
                 }
             }
         }
@@ -111,37 +132,23 @@ final class BooksViewController: UIViewController {
             errorLabel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8)
         ])
     }
-
 }
 
-extension BooksViewController: UITableViewDelegate, UITableViewDataSource {
+extension CategoriesViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        viewModel.books.value?.count ?? 0
+        viewModel.categories.value?.count ?? 0
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: BookCell.identifier) as? BookCell else { return UITableViewCell() }
-        guard let books = viewModel.books.value else { return UITableViewCell()}
-        cell.configure(book: books[indexPath.row])
-        cell.openWeb = { [weak self] url in
-            guard let self else { return }
-            let viewController = WebViewController(url: url)
-            self.navigationController?.pushViewController(viewController, animated: true)
-        }
-        cell.openDescription = { [weak self] overview in
-            guard let self else { return }
-            let viewController = DescriptionViewController(overview: overview)
-            if let sheet = viewController.sheetPresentationController {
-                sheet.prefersGrabberVisible = true
-                    sheet.detents = [.medium()]
-            }
-            self.present(viewController, animated: true, completion: nil)
-        }
+        let cell = UITableViewCell()
+        cell.textLabel?.text = viewModel.categories.value?[indexPath.row].listName
         return cell
     }
     
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        120
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let viewModel = BooksViewModel(networkService: BooksNetworkService())
+        viewModel.list = self.viewModel.categories.value?[indexPath.row]
+        let viewContoller = BooksViewController(viewModel: viewModel)
+        navigationController?.pushViewController(viewContoller, animated: true)
     }
-    
 }

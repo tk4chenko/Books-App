@@ -7,11 +7,12 @@
 
 import Foundation
 
-struct Welcome: Codable {
+struct BooksWelcome: Codable {
     let status, copyright: String?
     let numResults: Int?
     let lastModified: String?
     let results: Results?
+    let fault: Fault?
 }
 
 struct Results: Codable {
@@ -29,7 +30,7 @@ struct Book: Codable {
     let price: String?
     let title, author, contributor, contributorNote: String?
     let bookImage: String?
-    let amazonProductURL: String?
+    let amazonProductUrl: String?
     let ageGroup, bookReviewLink, firstChapterLink, sundayReviewLink: String?
     let articleChapterLink: String?
 }

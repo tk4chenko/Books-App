@@ -1,8 +1,8 @@
 //
 //  Observable.swift
-//  SpaceX
+//  Books
 //
-//  Created by Artem Tkachenko on 04.05.2023.
+//  Created by Artem Tkachenko on 06.07.2023.
 //
 
 import Foundation
