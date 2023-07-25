@@ -55,7 +55,7 @@ final class BookCell: UITableViewCell {
         let button = UIButton()
         button.setTitle("Buy", for: .normal)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.backgroundColor = UIColor(red: 222/255, green: 119/255, blue: 115/255, alpha: 1)
+        button.backgroundColor = .systemBlue
         button.layer.cornerRadius = 5
         button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .bold)
         return button
@@ -81,10 +81,13 @@ final class BookCell: UITableViewCell {
         }
         nameLabel.text = book.title
         authorLabel.text = book.author
-        let rankText = "★ \(book.rank ?? 0)"
+        var rankText = ""
+        for _ in 0..<(book.rank ?? 0) {
+            rankText += "★"
+        }
         let publisherText = book.publisher ?? ""
         let attributedText = NSMutableAttributedString(string: "\(rankText) | \(publisherText)")
-        attributedText.addAttribute(.foregroundColor, value: UIColor.red, range: NSRange(location: 0, length: rankText.count))
+        attributedText.addAttribute(.foregroundColor, value: UIColor.systemYellow, range: NSRange(location: 0, length: rankText.count))
         attributedText.addAttribute(.foregroundColor, value: UIColor.black, range: NSRange(location: rankText.count + 3, length: publisherText.count))
         rankLabel.attributedText = attributedText
         

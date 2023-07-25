@@ -1,5 +1,5 @@
 //
-//  CategoriesViewController.swift
+//  BooksViewController.swift
 //  Books
 //
 //  Created by Artem Tkachenko on 06.07.2023.
@@ -7,9 +7,12 @@
 
 import UIKit
 
-final class CategoriesViewController: UIViewController {
+final class BooksViewController: UIViewController {
     
-    let viewModel: CategoriesViewModelProtocol
+    let viewModel: BooksViewModelProtocol
+    
+    var openDescriptionViewController: ((String) -> Void)?
+    var openWebViewController: ((URL) -> Void)?
     
     private let tableView: UITableView = {
         let tableView = UITableView()
@@ -30,16 +33,14 @@ final class CategoriesViewController: UIViewController {
     private let errorLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 0
         label.isHidden = true
         label.textColor = .black
         label.textAlignment = .center
-        label.numberOfLines = 0
         return label
     }()
     
-    private let refreshControl = UIRefreshControl()
-    
-    init(viewModel: CategoriesViewModelProtocol) {
+    init(viewModel: BooksViewModelProtocol) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
@@ -50,63 +51,44 @@ final class CategoriesViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        Task {
-            await viewModel.getCategories(useCache: true)
-        }
         setupUI()
+        Task {
+            await viewModel.getBooks()
+        }
         setupBindings()
     }
     
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
         setupConstraints()
     }
     
     private func setupUI() {
-        title = "Categories"
+        title = viewModel.list?.listName
         view.backgroundColor = .systemBackground
         tableView.delegate = self
         tableView.dataSource = self
-        tableView.refreshControl = refreshControl
-        refreshControl.addAction(UIAction(handler: { [weak self] _ in
-            guard let self else { return }
-            URLCache.shared.removeAllCachedResponses()
-            self.perfomanceUI()
-            Task {
-                await self.viewModel.getCategories(useCache: true)
-            }
-        }), for: .valueChanged)
-    }
-    
-    private func perfomanceUI() {
-        Task {
-            try await Task.sleep(seconds: 1.2)
-            await MainActor.run {
-                self.refreshControl.endRefreshing()
-            }
-        }
+        tableView.register(BookCell.self, forCellReuseIdentifier: BookCell.identifier)
     }
     
     private func setupBindings() {
-        viewModel.categories.bind { [weak self] result in
-            guard let self else { return }
+        viewModel.books.bind { [weak self] result in
             if result != nil {
                 DispatchQueue.main.async {
-                    self.errorLabel.isHidden = true
-                    self.loadingIndicator.stopAnimating()
-                    self.loadingIndicator.removeFromSuperview()
-                    self.tableView.reloadData()
+                    self?.errorLabel.isHidden = true
+                    self?.loadingIndicator.stopAnimating()
+                    self?.loadingIndicator.removeFromSuperview()
+                    self?.tableView.reloadData()
                 }
             }
         }
         viewModel.error.bind { [weak self] result in
-            guard let self else { return }
             if result != nil {
                 DispatchQueue.main.async {
-                    self.loadingIndicator.stopAnimating()
-                    self.loadingIndicator.removeFromSuperview()
-                    self.errorLabel.text = result
-                    self.errorLabel.isHidden = false
+                    self?.errorLabel.text = result
+                    self?.loadingIndicator.stopAnimating()
+                    self?.loadingIndicator.removeFromSuperview()
+                    self?.errorLabel.isHidden = false
                 }
             }
         }
@@ -132,23 +114,31 @@ final class CategoriesViewController: UIViewController {
             errorLabel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8)
         ])
     }
+
 }
 
-extension CategoriesViewController: UITableViewDelegate, UITableViewDataSource {
+extension BooksViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        viewModel.categories.value?.count ?? 0
+        viewModel.books.value?.count ?? 0
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell()
-        cell.textLabel?.text = viewModel.categories.value?[indexPath.row].listName
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: BookCell.identifier) as? BookCell else { return UITableViewCell() }
+        guard let books = viewModel.books.value else { return UITableViewCell()}
+        cell.configure(book: books[indexPath.row])
+        cell.openWeb = { [weak self] url in
+            guard let self else { return }
+            self.openWebViewController?(url)
+        }
+        cell.openDescription = { [weak self] overview in
+            guard let self else { return }
+            self.openDescriptionViewController?(overview)
+        }
         return cell
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let viewModel = BooksViewModel(networkService: BooksNetworkService())
-        viewModel.list = self.viewModel.categories.value?[indexPath.row]
-        let viewContoller = BooksViewController(viewModel: viewModel)
-        navigationController?.pushViewController(viewContoller, animated: true)
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        120
     }
+    
 }
